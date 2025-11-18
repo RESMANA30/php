@@ -11,11 +11,7 @@ date_default_timezone_set('Asia/Jakarta');
 
 // Variabel untuk menyimpan konten teks dari iterasi sebelumnya.
 $previous_content = null; 
-
 $xpath_query = '/html/body/div[1]/div[2]';
-
-// Karakter ASCII Bell (bunyi beep)
-define('BELL_CHAR', "\x07"); 
 
 // --- DEFINISI WARNA ANSI ---
 define('COLOR_GREEN', "\033[32m");
@@ -26,13 +22,25 @@ define('COLOR_RESET', "\033[0m");
 // ---------------------------
 
 /**
- * Mengirim notifikasi menggunakan Termux-API dengan getaran.
+ * Mengirim pesan suara menggunakan Termux Text-to-Speech (TTS) sebanyak 5 kali.
+ *
+ * @param string $message Pesan yang akan dibacakan.
+ * @param int $count Jumlah pengulangan (default 5).
  */
-function send_termux_notification($title, $content) {
-    $escaped_title = escapeshellarg($title);
-    $escaped_content = escapeshellarg($content);
-    $command = "termux-notification --title {$escaped_title} --content {$escaped_content} --vibrate 1 --alert-once &";
-    exec($command);
+function send_termux_tts_repeatedly($message, $count = 5) {
+    $escaped_message = escapeshellarg($message);
+    
+    // Perintah dasar TTS (non-blocking)
+    $base_command = "termux-tts-speak -r 1.0 {$escaped_message} &";
+    
+    for ($i = 0; $i < $count; $i++) {
+        // Jalankan perintah TTS
+        exec($base_command);
+        
+        // Jeda 1.5 detik (1,500,000 mikrodetik) agar suara tidak tumpang tindih
+        // Anda mungkin perlu menyesuaikan waktu jeda ini tergantung kecepatan bicara TTS Anda.
+        usleep(1500000); 
+    }
 }
 
 ## 🚀 Persiapan & Input Pengguna
@@ -41,12 +49,9 @@ echo COLOR_GREEN . "Skrip Pemantauan Konten Dimulai.\n" . COLOR_RESET;
 echo COLOR_GREEN . "Mengambil konten dari URL: $url\n" . COLOR_RESET; 
 
 // Meminta input dari pengguna (y/n)
-$input_display = readline("Tampilkan konten yang diekstrak di layar? (y/n, default y): ");
-
-// Bersihkan dan tentukan variabel kontrol
+$input_display = readline(COLOR_GREEN . "Tampilkan konten yang diekstrak di layar? (y/n, default y): " . COLOR_RESET);
 $tampilkan_konten = (empty($input_display) || strtolower($input_display) === 'y');
 
-// Tampilkan status yang dipilih
 echo COLOR_BLUE . "\nStatus Tampilan Konten: " . ($tampilkan_konten ? "AKTIF" : "NONAKTIF") . "\n" . COLOR_RESET;
 echo COLOR_GREEN . "Skrip berjalan dalam loop 10 detik. Tekan Ctrl + C untuk mengakhiri.\n\n" . COLOR_RESET; 
 
@@ -64,7 +69,7 @@ while (true) {
         continue;
     }
 
-    // Inisialisasi DOMDocument, XPath, dan Ekstraksi Teks
+    // Inisialisasi DOMDocument, XPath, dan Ekstraksi Teks (Logika Sama)
     $dom = new DOMDocument();
     libxml_use_internal_errors(true);
     $dom->loadHTML($html_content);
@@ -90,25 +95,14 @@ while (true) {
         $end_time = microtime(true);
         $execution_time = round($end_time - $start_time, 4);
 
-        // 4. Deteksi Perubahan dan Kirim Notifikasi
+        // 4. Deteksi Perubahan dan BUNYIKAN SUARA TTS 5 KALI
         if ($previous_content !== null && $current_content !== $previous_content) {
             echo "\n" . COLOR_YELLOW . "🔔🔔🔔 PERUBAHAN DITEMUKAN! 🔔🔔🔔\n" . COLOR_RESET;
             echo COLOR_YELLOW . "Konten telah berubah pada {$start_date}\n" . COLOR_RESET;
             
-            // --- MODIFIKASI: NADA BEEP 10 KALI ---
-            echo COLOR_RED . "!!! MEMBUNYIKAN BEEP 10 KALI !!!\n" . COLOR_RESET;
-            for ($i = 0; $i < 10; $i++) {
-                echo BELL_CHAR; 
-                // Jeda 0.2 detik (200.000 microdetik) antara beep
-                usleep(200000); 
-            }
-            // -------------------------------------
-            
-            // Kirim notifikasi Termux
-            send_termux_notification(
-                "PERUBAHAN DITEMUKAN!", 
-                "Konten pada {$url} telah berubah pada {$start_date}. Skrip dihentikan."
-            );
+            // Panggil fungsi TTS yang berulang 5 kali
+            $message = "Perhatian! Perubahan konten telah terdeteksi. Skrip dihentikan.";
+            send_termux_tts_repeatedly($message, 5);
             
             echo "\n";
             
@@ -131,7 +125,7 @@ while (true) {
              echo COLOR_GREEN . " | STATUS: Sama.\n" . COLOR_RESET;
         }
         
-        // KONTROL TAMPILAN KONTEN
+        // --- KONTROL TAMPILAN KONTEN ---
         if ($tampilkan_konten) {
             echo COLOR_BLUE . "---------------------------------\n" . COLOR_RESET;
             echo $current_content;
@@ -150,4 +144,5 @@ while (true) {
     // Jeda selama 10 detik
     sleep(10);
 }
+
 

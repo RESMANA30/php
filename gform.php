@@ -14,7 +14,7 @@ $previous_content = null;
 
 $xpath_query = '/html/body/div[1]/div[2]';
 
-// Karakter ASCII Bell (bunyi beep di konsol)
+// Karakter ASCII Bell (bunyi beep)
 define('BELL_CHAR', "\x07"); 
 
 // --- DEFINISI WARNA ANSI ---
@@ -31,30 +31,8 @@ define('COLOR_RESET', "\033[0m");
 function send_termux_notification($title, $content) {
     $escaped_title = escapeshellarg($title);
     $escaped_content = escapeshellarg($content);
-    // --vibrate 1 untuk getar, & untuk background
     $command = "termux-notification --title {$escaped_title} --content {$escaped_content} --vibrate 1 --alert-once &";
     exec($command);
-}
-
-/**
- * Mengeluarkan bunyi beep berulang di konsol.
- * Catatan: Ketersediaan suara tergantung pada emulator terminal/OS.
- *
- * @param int $times Jumlah pengulangan beep.
- * @param int $delay_ms Jeda antar beep dalam milidetik (ms).
- */
-function repeat_beep($times = 5, $delay_ms = 500) {
-    // Konversi milidetik ke mikrodetik
-    $delay_us = $delay_ms * 1000; 
-
-    for ($i = 0; $i < $times; $i++) {
-        echo BELL_CHAR;
-        // Paksa output agar karakter Bell segera dikirim
-        ob_flush();
-        flush(); 
-        // Jeda
-        usleep($delay_us); 
-    }
 }
 
 ## 🚀 Persiapan & Input Pengguna
@@ -65,7 +43,7 @@ echo COLOR_GREEN . "Mengambil konten dari URL: $url\n" . COLOR_RESET;
 // Meminta input dari pengguna (y/n)
 $input_display = readline("Tampilkan konten yang diekstrak di layar? (y/n, default y): ");
 
-// Tentukan variabel kontrol
+// Bersihkan dan tentukan variabel kontrol
 $tampilkan_konten = (empty($input_display) || strtolower($input_display) === 'y');
 
 // Tampilkan status yang dipilih
@@ -117,18 +95,24 @@ while (true) {
             echo "\n" . COLOR_YELLOW . "🔔🔔🔔 PERUBAHAN DITEMUKAN! 🔔🔔🔔\n" . COLOR_RESET;
             echo COLOR_YELLOW . "Konten telah berubah pada {$start_date}\n" . COLOR_RESET;
             
-            // 1. Kirim Notifikasi Termux (dengan getaran)
+            // --- MODIFIKASI: NADA BEEP 10 KALI ---
+            echo COLOR_RED . "!!! MEMBUNYIKAN BEEP 10 KALI !!!\n" . COLOR_RESET;
+            for ($i = 0; $i < 10; $i++) {
+                echo BELL_CHAR; 
+                // Jeda 0.2 detik (200.000 microdetik) antara beep
+                usleep(200000); 
+            }
+            // -------------------------------------
+            
+            // Kirim notifikasi Termux
             send_termux_notification(
                 "PERUBAHAN DITEMUKAN!", 
                 "Konten pada {$url} telah berubah pada {$start_date}. Skrip dihentikan."
             );
             
-            // 2. Nada Beep Berulang (5 kali dengan jeda 500ms)
-            repeat_beep(5, 500);
-            
             echo "\n";
             
-            // 3. HENTIKAN SKRIP
+            // HENTIKAN SKRIP
             echo COLOR_RED . "Skrip dihentikan karena perubahan telah ditemukan.\n" . COLOR_RESET;
             exit(0); 
         }
@@ -147,7 +131,7 @@ while (true) {
              echo COLOR_GREEN . " | STATUS: Sama.\n" . COLOR_RESET;
         }
         
-        // Kontrol Tampilan Konten
+        // KONTROL TAMPILAN KONTEN
         if ($tampilkan_konten) {
             echo COLOR_BLUE . "---------------------------------\n" . COLOR_RESET;
             echo $current_content;
@@ -166,3 +150,4 @@ while (true) {
     // Jeda selama 10 detik
     sleep(10);
 }
+

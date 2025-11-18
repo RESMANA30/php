@@ -15,28 +15,36 @@ $previous_content = null;
 
 $xpath_query = '/html/body/div[1]/div[2]';
 
+// --- DEFINISI WARNA ANSI ---
+define('COLOR_GREEN', "\033[32m");
+define('COLOR_RED', "\033[31m");
+define('COLOR_YELLOW', "\033[33m");
+define('COLOR_BLUE', "\033[34m");
+define('COLOR_RESET', "\033[0m"); // Untuk mengembalikan warna ke default
+// ---------------------------
+
 /**
- * Mengirim notifikasi menggunakan Termux-API.
- * Termux-API harus terinstal: pkg install termux-api
+ * Mengirim notifikasi menggunakan Termux-API dengan getaran.
  *
  * @param string $title Judul notifikasi.
  * @param string $content Isi notifikasi.
  */
 function send_termux_notification($title, $content) {
-    // Escaping konten untuk shell command
     $escaped_title = escapeshellarg($title);
     $escaped_content = escapeshellarg($content);
     
-    // Perintah termux-notification
-    $command = "termux-notification --title {$escaped_title} --content {$escaped_content} --vibrate 1";
+    // --vibrate 1: Mengaktifkan getar
+    // --alert-once: Agar tidak menumpuk notifikasi
+    // & : Menjalankan perintah di background agar PHP tidak terblokir
+    $command = "termux-notification --title {$escaped_title} --content {$escaped_content} --vibrate 1 --alert-once &";
     
     // Jalankan perintah
     exec($command);
 }
 
-// 2. Tampilan Awal
-echo "Skrip berjalan dalam loop 10 detik. Tekan Ctrl + C untuk mengakhiri.\n";
-echo "Mengambil konten dari URL: $url\n\n"; 
+// 2. Tampilan Awal (Diberi Warna Hijau)
+echo COLOR_GREEN . "Skrip berjalan dalam loop 10 detik. Tekan Ctrl + C untuk mengakhiri.\n" . COLOR_RESET;
+echo COLOR_GREEN . "Mengambil konten dari URL: $url\n\n" . COLOR_RESET; 
 
 // 3. Loop Utama (Berjalan terus-menerus)
 while (true) {
@@ -47,32 +55,28 @@ while (true) {
     $html_content = @file_get_contents($url);
 
     if ($html_content === false) {
-        echo "[{$start_date}] Gagal mengambil konten dari URL: $url\n";
-        sleep(10); // Tetap tidur sebelum mencoba lagi
+        // Pesan Error diberi Warna Merah
+        echo COLOR_RED . "[{$start_date}] Gagal mengambil konten dari URL: $url\n" . COLOR_RESET;
+        sleep(10); 
         continue;
     }
 
-    // Inisialisasi DOMDocument dan tangani error parsing
+    // ... (Logika DOMDocument, XPath, dan Ekstraksi Teks sama)
     $dom = new DOMDocument();
     libxml_use_internal_errors(true);
     $dom->loadHTML($html_content);
     libxml_clear_errors();
 
     $xpath = new DOMXPath($dom);
-    
-    // Kueri XPath untuk elemen target
     $elements = $xpath->query($xpath_query);
 
     if ($elements->length > 0) {
         $element = $elements->item(0);
         $separated_text = '';
-
-        // --- Logika Ekstraksi Teks Rekursif dengan Baris Baru ---
         $text_nodes = $xpath->query('.//text()', $element); 
 
         foreach ($text_nodes as $text_node) {
             $text = trim($text_node->textContent);
-            
             if ($text !== '') {
                 $separated_text .= $text . "\n"; 
             }
@@ -80,15 +84,14 @@ while (true) {
         
         $current_content = trim($separated_text);
         
-        // --- Akhir Logika Ekstraksi ---
-
         $end_time = microtime(true);
         $execution_time = round($end_time - $start_time, 4);
 
         // 4. Deteksi Perubahan dan Kirim Notifikasi Termux
         if ($previous_content !== null && $current_content !== $previous_content) {
-            echo "\n🔔🔔🔔 PERUBAHAN DITEMUKAN! 🔔🔔🔔\n";
-            echo "Konten telah berubah pada {$start_date}\n";
+            // Pesan Perubahan diberi Warna Merah/Kuning Terang
+            echo "\n" . COLOR_YELLOW . "🔔🔔🔔 PERUBAHAN DITEMUKAN! 🔔🔔🔔\n" . COLOR_RESET;
+            echo COLOR_YELLOW . "Konten telah berubah pada {$start_date}\n" . COLOR_RESET;
             
             // Panggil fungsi notifikasi Termux
             send_termux_notification(
@@ -98,32 +101,32 @@ while (true) {
             
             echo "\n";
             
-            // !!! PERUBAHAN INTI: HENTIKAN SKRIP !!!
-            echo "Skrip dihentikan karena perubahan telah ditemukan.\n";
+            // HENTIKAN SKRIP
+            echo COLOR_RED . "Skrip dihentikan karena perubahan telah ditemukan.\n" . COLOR_RESET;
             exit(0); 
-            // ------------------------------------
         }
         
-        // Perbarui konten sebelumnya untuk iterasi berikutnya
+        // Perbarui konten sebelumnya
         $previous_content = $current_content;
         
-        // --- Tampilkan Hasil ---
-        echo "\n--- Hasil Eksekusi Ditemukan ---\n";
-        echo "Waktu: {$start_date} | Durasi: {$execution_time} detik";
+        // --- Tampilkan Hasil (Diberi Warna Biru) ---
+        echo "\n" . COLOR_BLUE . "--- Hasil Eksekusi Ditemukan ---\n" . COLOR_RESET;
+        echo COLOR_BLUE . "Waktu: {$start_date} | Durasi: {$execution_time} detik";
         
-        // Tampilkan status perubahan
+        // Tampilkan status perubahan (Warna Hijau jika Sama, Kuning jika Berubah - *tapi ini tidak akan terjangkau karena skrip sudah dihentikan*)
         if ($previous_content !== null && $current_content !== $previous_content) {
-             echo " | STATUS: BERUBAH!\n";
+             echo COLOR_YELLOW . " | STATUS: BERUBAH!\n" . COLOR_RESET;
         } else {
-             echo " | STATUS: Sama.\n";
+             echo COLOR_GREEN . " | STATUS: Sama.\n" . COLOR_RESET;
         }
         
-        echo "---------------------------------\n";
-        echo $current_content;
-        echo "\n---------------------------------\n\n";
+        echo COLOR_BLUE . "---------------------------------\n" . COLOR_RESET;
+        echo $current_content; // Konten teks tanpa warna agar mudah dibaca
+        echo "\n" . COLOR_BLUE . "---------------------------------\n\n" . COLOR_RESET;
 
     } else {
-        echo "[{$start_date}] Elemen dengan XPath '{$xpath_query}' tidak ditemukan.\n";
+        // Pesan Elemen Tidak Ditemukan diberi Warna Kuning
+        echo COLOR_YELLOW . "[{$start_date}] Elemen dengan XPath '{$xpath_query}' tidak ditemukan.\n" . COLOR_RESET;
         $previous_content = ''; 
     }
 

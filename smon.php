@@ -135,12 +135,14 @@ while (true) {
             echo COLOR_YELLOW . "Konten telah berubah pada {$start_date}\n" . COLOR_RESET;
             
             $message = "Perhatian! Perubahan konten telah terdeteksi. Skrip dihentikan.";
+
+            // 1. Notifikasi Visual (1 kali)
+            send_termux_notification("PERUBAHAN DITEMUKAN!", "Konten telah berubah pada {$start_date}. Skrip dihentikan.");
             
-            // 1. Peringatan Suara (TTS 5 kali)
+            // 2. Peringatan Suara (TTS 5 kali)
             send_termux_tts_repeatedly($message, 5);
             
-            // 2. Notifikasi Visual (1 kali)
-            send_termux_notification("PERUBAHAN DITEMUKAN!", "Konten telah berubah pada {$start_date}. Skrip dihentikan.");
+
             
             echo "\n";
             

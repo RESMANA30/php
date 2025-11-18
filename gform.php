@@ -9,8 +9,9 @@ $url = 'https://docs.google.com/forms/d/e/1FAIpQLSejf6i-ls52Qs0iSHBlF01GWihqFbPt
 //$xpath_query = '/html/body/div[1]/div[2]/div[1]/div'; xpath gform
 date_default_timezone_set('Asia/Jakarta');
 
+$tampilkan_konten = TRUE; 
+
 // Variabel untuk menyimpan konten teks dari iterasi sebelumnya.
-// Didefinisikan di luar loop agar nilainya bertahan di setiap iterasi.
 $previous_content = null; 
 
 $xpath_query = '/html/body/div[1]/div[2]';
@@ -33,18 +34,19 @@ function send_termux_notification($title, $content) {
     $escaped_title = escapeshellarg($title);
     $escaped_content = escapeshellarg($content);
     
-    // --vibrate 1: Mengaktifkan getar
-    // --alert-once: Agar tidak menumpuk notifikasi
-    // & : Menjalankan perintah di background agar PHP tidak terblokir
+    // Perintah termux-notification: --vibrate 1 untuk getar, & untuk background
     $command = "termux-notification --title {$escaped_title} --content {$escaped_content} --vibrate 1 --alert-once &";
     
     // Jalankan perintah
     exec($command);
 }
 
-// 2. Tampilan Awal (Diberi Warna Hijau)
+## 🚀 Tampilan Awal
 echo COLOR_GREEN . "Skrip berjalan dalam loop 10 detik. Tekan Ctrl + C untuk mengakhiri.\n" . COLOR_RESET;
-echo COLOR_GREEN . "Mengambil konten dari URL: $url\n\n" . COLOR_RESET; 
+echo COLOR_GREEN . "Mengambil konten dari URL: $url\n" . COLOR_RESET; 
+
+// Tambahkan informasi status tampilan konten
+echo COLOR_BLUE . "Status Tampilan Konten: " . ($tampilkan_konten ? "AKTIF" : "NONAKTIF") . "\n\n" . COLOR_RESET; 
 
 // 3. Loop Utama (Berjalan terus-menerus)
 while (true) {
@@ -55,13 +57,12 @@ while (true) {
     $html_content = @file_get_contents($url);
 
     if ($html_content === false) {
-        // Pesan Error diberi Warna Merah
         echo COLOR_RED . "[{$start_date}] Gagal mengambil konten dari URL: $url\n" . COLOR_RESET;
         sleep(10); 
         continue;
     }
 
-    // ... (Logika DOMDocument, XPath, dan Ekstraksi Teks sama)
+    // Inisialisasi DOMDocument, XPath, dan Ekstraksi Teks (Logika Sama)
     $dom = new DOMDocument();
     libxml_use_internal_errors(true);
     $dom->loadHTML($html_content);
@@ -89,11 +90,9 @@ while (true) {
 
         // 4. Deteksi Perubahan dan Kirim Notifikasi Termux
         if ($previous_content !== null && $current_content !== $previous_content) {
-            // Pesan Perubahan diberi Warna Merah/Kuning Terang
             echo "\n" . COLOR_YELLOW . "🔔🔔🔔 PERUBAHAN DITEMUKAN! 🔔🔔🔔\n" . COLOR_RESET;
             echo COLOR_YELLOW . "Konten telah berubah pada {$start_date}\n" . COLOR_RESET;
             
-            // Panggil fungsi notifikasi Termux
             send_termux_notification(
                 "PERUBAHAN DITEMUKAN!", 
                 "Konten pada {$url} telah berubah pada {$start_date}. Skrip dihentikan."
@@ -109,23 +108,30 @@ while (true) {
         // Perbarui konten sebelumnya
         $previous_content = $current_content;
         
-        // --- Tampilkan Hasil (Diberi Warna Biru) ---
+        ## 📊 Tampilkan Hasil
         echo "\n" . COLOR_BLUE . "--- Hasil Eksekusi Ditemukan ---\n" . COLOR_RESET;
         echo COLOR_BLUE . "Waktu: {$start_date} | Durasi: {$execution_time} detik";
         
-        // Tampilkan status perubahan (Warna Hijau jika Sama, Kuning jika Berubah - *tapi ini tidak akan terjangkau karena skrip sudah dihentikan*)
+        // Tampilkan status perubahan
         if ($previous_content !== null && $current_content !== $previous_content) {
              echo COLOR_YELLOW . " | STATUS: BERUBAH!\n" . COLOR_RESET;
         } else {
              echo COLOR_GREEN . " | STATUS: Sama.\n" . COLOR_RESET;
         }
         
-        echo COLOR_BLUE . "---------------------------------\n" . COLOR_RESET;
-        echo $current_content; // Konten teks tanpa warna agar mudah dibaca
-        echo "\n" . COLOR_BLUE . "---------------------------------\n\n" . COLOR_RESET;
+        // --- KONTROL TAMPILAN KONTEN BARU ---
+        if ($tampilkan_konten) {
+            echo COLOR_BLUE . "---------------------------------\n" . COLOR_RESET;
+            echo $current_content; // Konten teks tanpa warna agar mudah dibaca
+            echo "\n" . COLOR_BLUE . "---------------------------------\n\n" . COLOR_RESET;
+        } else {
+            echo COLOR_BLUE . "---------------------------------\n" . COLOR_RESET;
+            echo COLOR_BLUE . "(Tampilan konten dinonaktifkan)\n" . COLOR_RESET;
+            echo COLOR_BLUE . "---------------------------------\n\n" . COLOR_RESET;
+        }
+        // ------------------------------------
 
     } else {
-        // Pesan Elemen Tidak Ditemukan diberi Warna Kuning
         echo COLOR_YELLOW . "[{$start_date}] Elemen dengan XPath '{$xpath_query}' tidak ditemukan.\n" . COLOR_RESET;
         $previous_content = ''; 
     }

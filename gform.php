@@ -9,44 +9,68 @@ $url = 'https://docs.google.com/forms/d/e/1FAIpQLSejf6i-ls52Qs0iSHBlF01GWihqFbPt
 //$xpath_query = '/html/body/div[1]/div[2]/div[1]/div'; xpath gform
 date_default_timezone_set('Asia/Jakarta');
 
-$tampilkan_konten = TRUE; 
-
 // Variabel untuk menyimpan konten teks dari iterasi sebelumnya.
 $previous_content = null; 
 
 $xpath_query = '/html/body/div[1]/div[2]';
+
+// Karakter ASCII Bell (bunyi beep di konsol)
+define('BELL_CHAR', "\x07"); 
 
 // --- DEFINISI WARNA ANSI ---
 define('COLOR_GREEN', "\033[32m");
 define('COLOR_RED', "\033[31m");
 define('COLOR_YELLOW', "\033[33m");
 define('COLOR_BLUE', "\033[34m");
-define('COLOR_RESET', "\033[0m"); // Untuk mengembalikan warna ke default
+define('COLOR_RESET', "\033[0m");
 // ---------------------------
 
 /**
  * Mengirim notifikasi menggunakan Termux-API dengan getaran.
- *
- * @param string $title Judul notifikasi.
- * @param string $content Isi notifikasi.
  */
 function send_termux_notification($title, $content) {
     $escaped_title = escapeshellarg($title);
     $escaped_content = escapeshellarg($content);
-    
-    // Perintah termux-notification: --vibrate 1 untuk getar, & untuk background
+    // --vibrate 1 untuk getar, & untuk background
     $command = "termux-notification --title {$escaped_title} --content {$escaped_content} --vibrate 1 --alert-once &";
-    
-    // Jalankan perintah
     exec($command);
 }
 
-## 🚀 Tampilan Awal
-echo COLOR_GREEN . "Skrip berjalan dalam loop 10 detik. Tekan Ctrl + C untuk mengakhiri.\n" . COLOR_RESET;
+/**
+ * Mengeluarkan bunyi beep berulang di konsol.
+ * Catatan: Ketersediaan suara tergantung pada emulator terminal/OS.
+ *
+ * @param int $times Jumlah pengulangan beep.
+ * @param int $delay_ms Jeda antar beep dalam milidetik (ms).
+ */
+function repeat_beep($times = 5, $delay_ms = 500) {
+    // Konversi milidetik ke mikrodetik
+    $delay_us = $delay_ms * 1000; 
+
+    for ($i = 0; $i < $times; $i++) {
+        echo BELL_CHAR;
+        // Paksa output agar karakter Bell segera dikirim
+        ob_flush();
+        flush(); 
+        // Jeda
+        usleep($delay_us); 
+    }
+}
+
+## 🚀 Persiapan & Input Pengguna
+
+echo COLOR_GREEN . "Skrip Pemantauan Konten Dimulai.\n" . COLOR_RESET;
 echo COLOR_GREEN . "Mengambil konten dari URL: $url\n" . COLOR_RESET; 
 
-// Tambahkan informasi status tampilan konten
-echo COLOR_BLUE . "Status Tampilan Konten: " . ($tampilkan_konten ? "AKTIF" : "NONAKTIF") . "\n\n" . COLOR_RESET; 
+// Meminta input dari pengguna (y/n)
+$input_display = readline("Tampilkan konten yang diekstrak di layar? (y/n, default y): ");
+
+// Tentukan variabel kontrol
+$tampilkan_konten = (empty($input_display) || strtolower($input_display) === 'y');
+
+// Tampilkan status yang dipilih
+echo COLOR_BLUE . "\nStatus Tampilan Konten: " . ($tampilkan_konten ? "AKTIF" : "NONAKTIF") . "\n" . COLOR_RESET;
+echo COLOR_GREEN . "Skrip berjalan dalam loop 10 detik. Tekan Ctrl + C untuk mengakhiri.\n\n" . COLOR_RESET; 
 
 // 3. Loop Utama (Berjalan terus-menerus)
 while (true) {
@@ -62,7 +86,7 @@ while (true) {
         continue;
     }
 
-    // Inisialisasi DOMDocument, XPath, dan Ekstraksi Teks (Logika Sama)
+    // Inisialisasi DOMDocument, XPath, dan Ekstraksi Teks
     $dom = new DOMDocument();
     libxml_use_internal_errors(true);
     $dom->loadHTML($html_content);
@@ -88,19 +112,23 @@ while (true) {
         $end_time = microtime(true);
         $execution_time = round($end_time - $start_time, 4);
 
-        // 4. Deteksi Perubahan dan Kirim Notifikasi Termux
+        // 4. Deteksi Perubahan dan Kirim Notifikasi
         if ($previous_content !== null && $current_content !== $previous_content) {
             echo "\n" . COLOR_YELLOW . "🔔🔔🔔 PERUBAHAN DITEMUKAN! 🔔🔔🔔\n" . COLOR_RESET;
             echo COLOR_YELLOW . "Konten telah berubah pada {$start_date}\n" . COLOR_RESET;
             
+            // 1. Kirim Notifikasi Termux (dengan getaran)
             send_termux_notification(
                 "PERUBAHAN DITEMUKAN!", 
                 "Konten pada {$url} telah berubah pada {$start_date}. Skrip dihentikan."
             );
             
+            // 2. Nada Beep Berulang (5 kali dengan jeda 500ms)
+            repeat_beep(5, 500);
+            
             echo "\n";
             
-            // HENTIKAN SKRIP
+            // 3. HENTIKAN SKRIP
             echo COLOR_RED . "Skrip dihentikan karena perubahan telah ditemukan.\n" . COLOR_RESET;
             exit(0); 
         }
@@ -119,17 +147,16 @@ while (true) {
              echo COLOR_GREEN . " | STATUS: Sama.\n" . COLOR_RESET;
         }
         
-        // --- KONTROL TAMPILAN KONTEN BARU ---
+        // Kontrol Tampilan Konten
         if ($tampilkan_konten) {
             echo COLOR_BLUE . "---------------------------------\n" . COLOR_RESET;
-            echo $current_content; // Konten teks tanpa warna agar mudah dibaca
+            echo $current_content;
             echo "\n" . COLOR_BLUE . "---------------------------------\n\n" . COLOR_RESET;
         } else {
             echo COLOR_BLUE . "---------------------------------\n" . COLOR_RESET;
             echo COLOR_BLUE . "(Tampilan konten dinonaktifkan)\n" . COLOR_RESET;
             echo COLOR_BLUE . "---------------------------------\n\n" . COLOR_RESET;
         }
-        // ------------------------------------
 
     } else {
         echo COLOR_YELLOW . "[{$start_date}] Elemen dengan XPath '{$xpath_query}' tidak ditemukan.\n" . COLOR_RESET;
